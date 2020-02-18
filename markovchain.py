@@ -7,7 +7,7 @@ import fnmatch
 import json
 from functools import partial
 
-import spacy
+import nlphandler
 
 import jsonfile
 
@@ -17,29 +17,42 @@ class MarkovObject(object):
         super(MarkovObject, self).__init__()
         self.markov_table = {}
 
-        self.language_word_list = {}
-        with open('data/words_alpha_en.txt') as word_file:
-            valid_words = set(word_file.read().split())
-            self.language_word_list["EN"] = valid_words
+        # self.language_word_list = {}
+        # with open('data/words_alpha_en.txt') as word_file:
+        #     valid_words = set(word_file.read().split())
+        #     self.language_word_list["EN"] = valid_words
 
-        with open('data/words_alpha_fr.txt') as word_file:
-            valid_words = set(word_file.read().split())
-            self.language_word_list["FR"] = valid_words
+        # with open('data/words_alpha_fr.txt') as word_file:
+        #     valid_words = set(word_file.read().split())
+        #     self.language_word_list["FR"] = valid_words
 
-        print("Loading Spacy en_core_web_lg...", flush=True, end='\r')
-        self.nlp_en = spacy.load("en_core_web_lg")
-        print("Loading Spacy en_core_web_lg... Done!")
+        self.nlp = nlphandler.NLPHandler()
 
-        print("Loading Spacy fr_core_news_md...", flush=True, end='\r')
-        self.nlp_fr = spacy.load("fr_core_news_md")
-        print("Loading Spacy fr_core_news_md... Done!")
+        # print("Apparement in english? {}".format(self.nlp.is_word_english("Apparement")))
+        # print("Apparement in french? {}".format(self.nlp.is_word_french("Apparement")))
 
-        # print("Apparement in english? {}".format("Apparement" in self.nlp_en.vocab))
-        # print("Apparement in french? {}".format("Apparement" in self.nlp_fr.vocab))
+        # text = ("This is a sentence lol")
+        # doc = self.nlp.process_text(text, "EN")
 
-        test = self.nlp_fr("Apparement je suis allez a la maison en voiture.")
-        for entity in test.ents:
-            print(entity.text, entity.label_)
+        # for token in doc:
+        #     print(token.text, token.lemma_, token.pos_, token.tag_, token.dep_,
+        #             token.shape_, token.is_alpha, token.is_stop)
+
+        # print()
+        # print()
+        # print()
+
+        # text = ("Ceci est une phrase en francais lol")
+        # doc = self.nlp.process_text(text, "FR")
+
+        # for token in doc:
+        #     print(token.text, token.lemma_, token.pos_, token.tag_, token.dep_,
+        #             token.shape_, token.is_alpha, token.is_stop)
+
+        # t = self.nlp.process_text("Ceci est un phrase lol", "FR")
+        # print(t)
+        # for entity in t.ents:
+        #     print(entity.text, entity.label_)
 
         self.END_CHAR = "__end__"
 
@@ -61,6 +74,7 @@ class MarkovObject(object):
             #Get rid of links
             message = url_regex.sub("", message)
 
+
             #Handle ponctuation
             for p in self.ponctuation_end_sentence:
                 message = message.replace(p, " "+self.END_CHAR)
@@ -68,6 +82,45 @@ class MarkovObject(object):
             for p in self.ponctuation_continue_sentence:
                 message = message.replace(p, " "+p)
 
+            #NLP
+            split_msg = message.split()
+
+            en = 0
+            fr = 0
+            for w in split_msg:
+                _c = 0
+                if self.nlp.is_word_french(w):
+                    fr += 1
+                if self.nlp.is_word_english(w):
+                    en += 1
+            lang = "EN" if en > fr else "FR"
+
+            doc = self.nlp.process_text(message, lang)
+
+            for i, word_token in enumerate(doc):
+                try:
+                    self.markov_table[sender_name][word_token.text]
+                except Exception:
+                    self.markov_table[sender_name][word_token.text] = {"data":{}, "list":[]}
+
+                if i >= len(split_msg)-1:
+                    ok = False
+                    for _d in self.markov_table[sender_name][word_token.text]["list"]:
+                        if _d["word"] == self.END_CHAR:
+                            _d["value"] += 1
+                            ok = True
+                    if not ok:
+                        self.markov_table[sender_name][word_token.text]["list"].append( {"word": self.END_CHAR, "value": 1} )
+                else:
+                    ok = False
+                    for _d in self.markov_table[sender_name][word_token.text]["list"]:
+                        if _d["word"] == split_msg[i+1]:
+                            _d["value"] += 1
+                            ok = True
+                    if not ok:
+                        self.markov_table[sender_name][word_token.text]["list"].append( {"word": split_msg[i+1], "value": 1} )
+
+            """
             #Store data
             split_msg = message.split()
 
@@ -93,6 +146,9 @@ class MarkovObject(object):
                             ok = True
                     if not ok:
                         self.markov_table[sender_name][word].append( {"word": split_msg[i+1], "value": 1} )
+            """
+
+
 
     def load_all_data(self, save_to_file=False):
         total = len(os.listdir(self.path_to_data))
@@ -162,8 +218,8 @@ class MarkovObject(object):
 
         while next_word != self.END_CHAR:
             #Pick a word
-            next_word_list   = [wd["word"] for wd in self.markov_table[sender_name][current_word]]
-            next_word_values = [wd["value"] for wd in self.markov_table[sender_name][current_word]]
+            next_word_list   = [wd["word"] for wd in self.markov_table[sender_name][current_word]["list"]]
+            next_word_values = [wd["value"] for wd in self.markov_table[sender_name][current_word]["list"]]
             _total = sum(next_word_values)
             next_word_p = [v/_total for v in next_word_values]
 

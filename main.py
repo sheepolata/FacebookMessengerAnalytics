@@ -86,12 +86,12 @@ def main():
 
 		markov_object = markovchain.MarkovObject(option_values["path_to_data"])
 
-		# if option_values["reload_markov"]:
-		# 	markov_object.load_all_data(save_to_file=True)
-		# else:
-		# 	markov_object.load_markovtable("./data/markovtable.json")
+		if option_values["reload_markov"]:
+			markov_object.load_all_data(save_to_file=True)
+		else:
+			markov_object.load_markovtable("./data/markovtable.json")
 
-		# 	markov_object.conversation_to_file(option_values["size"], participants=option_values["participants"], output=option_values["output_file"])
+			markov_object.conversation_to_file(option_values["size"], participants=option_values["participants"], output=option_values["output_file"])
 
 		print("Done")	
 
