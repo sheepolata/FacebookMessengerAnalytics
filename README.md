@@ -1,5 +1,5 @@
 
-#INSTALL
+# INSTALL
 
 *Python3.7.6* used for dev.
 
@@ -7,7 +7,7 @@ Use requirements.txt to install required libraries.
 
 Download en_core_web_lg and fr_core_news_md from the [Spacy Website](https://spacy.io/models) **UNUSED FOR NOW - WIP**
 
-#USAGE
+# USAGE
 
 Go to Facebook and ask for downloading your messager data. The zip should contain a *inbox* folder.
 Use this folder to load your data.
