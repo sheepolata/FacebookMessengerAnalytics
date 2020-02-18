@@ -27,7 +27,7 @@ def main():
 		(
 			'part',
 			'participants',
-			["Antoine Gaget", "Jeremy Rousset", "Stefan MG"],
+			[],
 			'Participant name as a String list (e.g. \"Name1, Name2 Surname2\")',
 			False,
 			True

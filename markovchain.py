@@ -232,7 +232,7 @@ class MarkovObject(object):
 
         if len(participants) <= 0:
             participants = list(np.random.choice(list(self.markov_table.keys()), np.random.randint(1, 2)))
-            participants.append("Antoine Gaget")
+            # participants.append("Antoine Gaget")
 
         # print(participants)
 
