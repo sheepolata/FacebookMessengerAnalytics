@@ -1,5 +1,6 @@
 # My ignores
 output/*.txt
+data/markovtable.json
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
