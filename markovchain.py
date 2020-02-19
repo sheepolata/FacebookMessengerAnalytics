@@ -87,15 +87,7 @@ class MarkovObject(object):
             #NLP
             split_msg = message.split()
 
-            en = 0
-            fr = 0
-            for w in split_msg:
-                _c = 0
-                if self.nlp.is_word_french(w):
-                    fr += 1
-                if self.nlp.is_word_english(w):
-                    en += 1
-            lang = "EN" if en > fr else "FR"
+            lang = self.get_major_language(split_msg)
 
             doc = self.nlp.process_text(message, lang)
 
@@ -168,6 +160,17 @@ class MarkovObject(object):
                     if not ok:
                         self.markov_table[sender_name][word].append( {"word": split_msg[i+1], "value": 1} )
             """
+
+    def get_major_language(self, split_msg):
+        en = 0
+        fr = 0
+        for w in split_msg:
+            _c = 0
+            if self.nlp.is_word_french(w):
+                fr += 1
+            if self.nlp.is_word_english(w):
+                en += 1
+        return "EN" if en > fr else "FR"
 
     def load_nlp(self):
         if self.nlp == None:
@@ -261,18 +264,39 @@ class MarkovObject(object):
 
         return pronouns
 
-    def generate_sentence(self, sender_name):
+    def get_verb_list(self, sender_name):
+        all_words = list(self.markov_table[sender_name].keys())
+
+        verbs = [w for w in all_words if self.markov_table[sender_name][w]["data"]["pos_"] in ["VERB"]]
+
+        return verbs
+
+    def get_verb_for_first_word_list(self, sender_name):
+        v = self.get_verb_list(sender_name)
+
+        return [w for w in v if self.markov_table[sender_name][w]["data"]["tag_"] in ["VBZ", "VBG"]]
+
+    def get_first_word_list(self, sender_name):
+        # return self.get_pronoun_list(sender_name)+self.get_verb_for_first_word_list(sender_name)
+        return self.get_pronoun_list(sender_name)
+
+    def generate_sentence(self, sender_name, subject=None):
         if not sender_name in self.markov_table:
             return "NO " + sender_name + " IN MARKOV TABLE"
 
         sentence = ""
 
-        if len(self.get_pronoun_list(sender_name)) <= 0:
-            return "{} HAS NO PRONOUNS IN HIS LIST...".format(sender_name)
+        if subject != None:
+            current_word = subject
+        else:
+            first_word_list = self.get_pronoun_list(sender_name)+self.get_verb_for_first_word_list(sender_name)
+            if len(first_word_list) <= 0:
+                return "{} HAS NO USABLE PRONOUNS OR VERBS FOR FIRST WORD IN HIS LIST...".format(sender_name)
 
-        current_word = np.random.choice(self.get_pronoun_list(sender_name))
-        while current_word in self.ponctuation_end_sentence+self.ponctuation_continue_sentence:
-            current_word = np.random.choice(self.get_pronoun_list(sender_name))
+            current_word = np.random.choice(first_word_list)
+            while current_word in self.ponctuation_end_sentence+self.ponctuation_continue_sentence:
+                current_word = np.random.choice(first_word_list)
+
         sentence = current_word
         next_word = None
 
@@ -316,12 +340,21 @@ class MarkovObject(object):
         return (sender_name, sentence)
 
     def generate_sentences(self, sender_name):
+
         final_sentences = ""
         _continue = True
-        _p = 0.5
+        _p = 1.0
+        _subject = None
         while _continue:
-            s = self.generate_sentence(sender_name)
-            final_sentences += "\t" + s[1] + "\n"
+            s = self.generate_sentence(sender_name, subject=_subject)
+
+            doc = self.nlp.process_text(str(s[1]), self.get_major_language(s[1].split()))
+
+            for tok in doc:
+                if tok.dep_ == "nsubj":
+                    subject = tok.text
+
+            final_sentences += s[1] + "\n"
             if np.random.rand() > _p:
                 _continue = False
             else:
@@ -331,6 +364,8 @@ class MarkovObject(object):
 
 
     def generate_conversation(self, nb_exchange, participants):
+
+        self.load_nlp()
 
         participants_OK = (True, "None")
         for p in participants:
