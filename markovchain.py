@@ -101,7 +101,25 @@ class MarkovObject(object):
                 try:
                     self.markov_table[sender_name][word_token.text]
                 except Exception:
-                    self.markov_table[sender_name][word_token.text] = {"data":{}, "list":[]}
+
+                    # Text: The original word text.
+                    # Lemma: The base form of the word.
+                    # POS: The simple part-of-speech tag.
+                    # Tag: The detailed part-of-speech tag.
+                    # Dep: Syntactic dependency, i.e. the relation between tokens.
+                    # Shape: The word shape – capitalization, punctuation, digits.
+                    # is alpha: Is the token an alpha character?
+                    # is stop: Is the token part of a stop list, i.e. the most common words of the language?
+                    
+                    _data = {}
+                    _data["lemma_"] = word_token.lemma_
+                    _data["pos_"] = word_token.pos_
+                    _data["tag_"] = word_token.tag_
+                    _data["dep_"] = word_token.dep_
+                    _data["shape_"] = word_token.shape_
+                    _data["is_alpha"] = word_token.is_alpha
+                    _data["is_stop"] = word_token.is_stop
+                    self.markov_table[sender_name][word_token.text] = {"data": _data, "list":[]}
 
                 if i >= len(split_msg)-1:
                     ok = False
@@ -164,6 +182,8 @@ class MarkovObject(object):
                     self.fill_all_data_from_file(complete_file_path)
             count += 1
             print("load_all_data... {}/{} directories".format(count, total), flush=True, end='\r')
+            if count >= 10:
+                break
 
         print("")
         print("load_all_data completed")

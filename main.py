@@ -91,7 +91,7 @@ def main():
 		else:
 			markov_object.load_markovtable("./data/markovtable.json")
 
-			markov_object.conversation_to_file(option_values["size"], participants=option_values["participants"], output=option_values["output_file"])
+			# markov_object.conversation_to_file(option_values["size"], participants=option_values["participants"], output=option_values["output_file"])
 
 		print("Done")	
 
