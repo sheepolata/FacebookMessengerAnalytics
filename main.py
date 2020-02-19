@@ -91,7 +91,12 @@ def main():
 		else:
 			markov_object.load_markovtable("./data/markovtable.json")
 
-			# markov_object.conversation_to_file(option_values["size"], participants=option_values["participants"], output=option_values["output_file"])
+			# print(len(markov_object.markov_table["Antoine Gaget"]))
+
+			# for i in range(10):
+			# 	print(markov_object.generate_sentence("Antoine Gaget"))
+
+			markov_object.conversation_to_file(option_values["size"], participants=option_values["participants"], output=option_values["output_file"])
 
 		print("Done")	
 

@@ -6,9 +6,10 @@ import os
 import fnmatch
 import json
 from functools import partial
+import time 
 
 import nlphandler
-
+import utils
 import jsonfile
 
 class MarkovObject(object):
@@ -16,6 +17,8 @@ class MarkovObject(object):
     def __init__(self, path_to_data):
         super(MarkovObject, self).__init__()
         self.markov_table = {}
+
+        self.nlp = None
 
         # self.language_word_list = {}
         # with open('data/words_alpha_en.txt') as word_file:
@@ -25,8 +28,6 @@ class MarkovObject(object):
         # with open('data/words_alpha_fr.txt') as word_file:
         #     valid_words = set(word_file.read().split())
         #     self.language_word_list["FR"] = valid_words
-
-        self.nlp = nlphandler.NLPHandler()
 
         # print("Apparement in english? {}".format(self.nlp.is_word_english("Apparement")))
         # print("Apparement in french? {}".format(self.nlp.is_word_french("Apparement")))
@@ -58,6 +59,7 @@ class MarkovObject(object):
 
         self.ponctuation_end_sentence = ['!', '.', '?', '...']
         self.ponctuation_continue_sentence = [',', ':', '=']
+        self.old_school_smileys = ['=)', '=D', ':)', ':p', ':(', ':\'(', ';)', 'xD', 'xd', 'XD', '^^']
 
         self.path_to_data = path_to_data
 
@@ -76,11 +78,11 @@ class MarkovObject(object):
 
 
             #Handle ponctuation
-            for p in self.ponctuation_end_sentence:
-                message = message.replace(p, " "+self.END_CHAR)
-                # message = message.replace(p, " "+p)
-            for p in self.ponctuation_continue_sentence:
-                message = message.replace(p, " "+p)
+            # for p in self.ponctuation_end_sentence:
+            #     message = message.replace(p, " "+p)
+            #     # message = message.replace(p, " "+p)
+            # for p in self.ponctuation_continue_sentence:
+            #     message = message.replace(p, " "+p)
 
             #NLP
             split_msg = message.split()
@@ -121,22 +123,23 @@ class MarkovObject(object):
                     _data["is_stop"] = word_token.is_stop
                     self.markov_table[sender_name][word_token.text] = {"data": _data, "list":[]}
 
-                if i >= len(split_msg)-1:
+                # if i >= len(doc)-1:
+                #     ok = False
+                #     for _d in self.markov_table[sender_name][word_token.text]["list"]:
+                #         if _d["word"] == self.END_CHAR:
+                #             _d["value"] += 1
+                #             ok = True
+                #     if not ok:
+                #         self.markov_table[sender_name][word_token.text]["list"].append( {"word": self.END_CHAR, "value": 1} )
+                # else:
+                if i < (len(doc) - 1):
                     ok = False
                     for _d in self.markov_table[sender_name][word_token.text]["list"]:
-                        if _d["word"] == self.END_CHAR:
+                        if _d["word"] == doc[i+1].text:
                             _d["value"] += 1
                             ok = True
                     if not ok:
-                        self.markov_table[sender_name][word_token.text]["list"].append( {"word": self.END_CHAR, "value": 1} )
-                else:
-                    ok = False
-                    for _d in self.markov_table[sender_name][word_token.text]["list"]:
-                        if _d["word"] == split_msg[i+1]:
-                            _d["value"] += 1
-                            ok = True
-                    if not ok:
-                        self.markov_table[sender_name][word_token.text]["list"].append( {"word": split_msg[i+1], "value": 1} )
+                        self.markov_table[sender_name][word_token.text]["list"].append( {"word": doc[i+1].text, "value": 1} )
 
             """
             #Store data
@@ -166,24 +169,51 @@ class MarkovObject(object):
                         self.markov_table[sender_name][word].append( {"word": split_msg[i+1], "value": 1} )
             """
 
-
+    def load_nlp(self):
+        if self.nlp == None:
+            self.nlp = nlphandler.NLPHandler()
 
     def load_all_data(self, save_to_file=False):
+        self.load_nlp()
+
         total = len(os.listdir(self.path_to_data))
         count = 0
-        print("load_all_data... {}/{} directories".format(count, total), flush=True, end='\r')
+        l_time = []
+        # print("load_all_data... {}/{} directories".format(count, total), flush=True, end='\r')
 
+
+        def _print_load():
+            if len(l_time) <= 0:
+                return
+            mean_t = np.mean(l_time)
+            total_remaining = int(round(mean_t * (total-count)))
+            if total_remaining <= 120:
+                total_remaining_str = str(total_remaining) + 's'
+            else:
+                total_remaining_str = "{}m{}s".format(int(round(total_remaining/60.0)), int(total_remaining%60))
+            to_print = "load_all_data... {}/{} directories -- ETA {}".format(count, total, total_remaining_str)
+            if len(to_print) <= 51:
+                to_print += "          "
+            print(to_print, flush=True, end='\r')
+
+        loading_display_timer = utils.perpetualTimer(0.2, _print_load)
+        loading_display_timer.start()
 
         for dir_name in os.listdir(self.path_to_data):
+            t = time.time()
             complete_dir_name = self.path_to_data + dir_name + "/"
             for filename in os.listdir(complete_dir_name):
                 if fnmatch.fnmatch(filename, '*.json'):
                     complete_file_path = complete_dir_name + filename
                     self.fill_all_data_from_file(complete_file_path)
             count += 1
-            print("load_all_data... {}/{} directories".format(count, total), flush=True, end='\r')
-            if count >= 10:
-                break
+            t = time.time() - t
+            l_time.append(t)
+            # if len(l_time) > 10:
+            #     l_time = l_time[1:]
+            # print("load_all_data... {}/{} directories".format(count, total), flush=True, end='\r')
+
+        loading_display_timer.cancel()
 
         print("")
         print("load_all_data completed")
@@ -224,22 +254,47 @@ class MarkovObject(object):
         # markov_object.add_message_list(l_my_messages_content)
         self.add_message_list(l_my_messages_content, name)
 
+    def get_pronoun_list(self, sender_name):
+        all_words = list(self.markov_table[sender_name].keys())
+
+        pronouns = [w for w in all_words if self.markov_table[sender_name][w]["data"]["pos_"] in ["PRON", "DET"]]
+
+        return pronouns
+
     def generate_sentence(self, sender_name):
         if not sender_name in self.markov_table:
             return "NO " + sender_name + " IN MARKOV TABLE"
 
         sentence = ""
 
-        current_word = np.random.choice(list(self.markov_table[sender_name].keys()))
-        while current_word == self.END_CHAR:
-            current_word = np.random.choice(list(self.markov_table[sender_name].keys()))
+        if len(self.get_pronoun_list(sender_name)) <= 0:
+            return "{} HAS NO PRONOUNS IN HIS LIST...".format(sender_name)
+
+        current_word = np.random.choice(self.get_pronoun_list(sender_name))
+        while current_word in self.ponctuation_end_sentence+self.ponctuation_continue_sentence:
+            current_word = np.random.choice(self.get_pronoun_list(sender_name))
         sentence = current_word
         next_word = None
 
-        while next_word != self.END_CHAR:
+        counter = 0
+        counter_max = 100
+        # while next_word != self.END_CHAR:
+        while not next_word in self.ponctuation_end_sentence+self.old_school_smileys:
+            if counter > counter_max:
+                sentence += " (END BECAUSE TOO LONG)"
+                break
             #Pick a word
-            next_word_list   = [wd["word"] for wd in self.markov_table[sender_name][current_word]["list"]]
+            try:
+                next_word_list   = [wd["word"] for wd in self.markov_table[sender_name][current_word]["list"]]
+            except Exception:
+                current_word = np.random.choice(list(self.markov_table[sender_name].keys()))
+                next_word_list   = [wd["word"] for wd in self.markov_table[sender_name][current_word]["list"]]
+
+            if len(next_word_list) <= 0:
+                break
+
             next_word_values = [wd["value"] for wd in self.markov_table[sender_name][current_word]["list"]]
+            
             _total = sum(next_word_values)
             next_word_p = [v/_total for v in next_word_values]
 
@@ -251,8 +306,12 @@ class MarkovObject(object):
             else:
                 sentence += " " + next_word
             current_word = next_word
+            counter += 1
 
-        sentence = sentence.replace(self.END_CHAR, np.random.choice(self.ponctuation_end_sentence))
+            # print(sentence)
+            # time.sleep(0.3)
+
+        #sentence = sentence.replace(self.END_CHAR, "")#np.random.choice(self.ponctuation_end_sentence))
 
         return (sender_name, sentence)
 
@@ -272,7 +331,6 @@ class MarkovObject(object):
 
 
     def generate_conversation(self, nb_exchange, participants):
-        conversation = []
 
         participants_OK = (True, "None")
         for p in participants:
@@ -281,11 +339,14 @@ class MarkovObject(object):
                 break
         if not participants_OK[0]:
             print("{} not in data...".format(participants_OK[1]))
-            return []
+            return {}
 
+        conversation = {"conversation": [], "participants": participants}
 
         _sender_index = np.random.randint(0, len(participants))
         _next_sender_chance = 0.3
+
+        print("Generating conversation... {}/{}".format(0, nb_exchange), flush=True, end='\r')
 
         for i in range(nb_exchange):
             if np.random.rand() < _next_sender_chance:
@@ -294,9 +355,16 @@ class MarkovObject(object):
                 _next_sender_chance += 0.15
 
             _sender = participants[_sender_index]
+            sentences = self.generate_sentences(_sender)
+            _d = {}
+            _d["sender_name"] = sentences[0]
+            _d["content"]     = sentences[1]
+            _d["timestamp"]   = i
 
-            conversation.append(self.generate_sentences(_sender))
+            conversation["conversation"].append(_d)
+            print("Generating conversation... {}/{}".format(i, nb_exchange), flush=True, end='\r')
 
+        print("Generating conversation... {}/{}... Done!".format(i, nb_exchange))
         return conversation
 
 
@@ -313,18 +381,22 @@ class MarkovObject(object):
         # print(participants)
 
         if output == None:
-            path = "./output/{}_conversation_{}.txt".format(participants, seed)
+            path = "./output/{}_conversation_{}.json".format(participants, seed)
         else:
             path = output
         f = open(path, 'w')
 
         l = self.generate_conversation(nb_exchange, participants)
 
-        for m in l:
-            try:
-                f.write("{}\n{}\n\n".format(m[0], m[1]))
-            except Exception as e:
-                f.write("{}\n\tERROR: {}\n\n".format(m[0], str(e)))
+
+        f.write(json.dumps(l, indent=4, sort_keys=True))
+        # json.dumps(f, l)
+
+        # for m in l:
+        #     try:
+        #         f.write("{}\n{}\n\n".format(m[0], m[1]))
+        #     except Exception as e:
+        #         f.write("{} (ERRORED MESSAGE {})\n{}\n\n".format(m[0], e, m[1].encode('latin-1').decode('utf-8')))
 
 
         f.close()

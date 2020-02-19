@@ -1,5 +1,6 @@
 # My ignores
 output/*.txt
+output/*.json
 data/markovtable.json
 
 # Byte-compiled / optimized / DLL files
