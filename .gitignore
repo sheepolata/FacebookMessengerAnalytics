@@ -2,6 +2,7 @@
 output/*.txt
 output/*.json
 data/markovtable.json
+data/markovtable_save.json
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
