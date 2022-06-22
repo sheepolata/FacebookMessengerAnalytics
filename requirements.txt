@@ -2,7 +2,7 @@
 # https://github.com/damnever/pigar
 
 # markovchain.py: 2
-numpy == 1.16.4
+numpy == 1.22.0
 
 # markovchain.py: 10
 spacy == 2.2.3
